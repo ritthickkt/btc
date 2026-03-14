@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -23,6 +24,22 @@ const SNAPS = [
 
 export default function SnapsScreen({ navigation }) {
   const isDesktop = useIsDesktop();
+  const { height: windowHeight } = useWindowDimensions();
+  const headerHeight = 88; // Approx height (including safe area padding)
+
+  const renderSnap = ({ item }) => (
+    <View style={[styles.snapPage, { height: windowHeight - headerHeight }]}>  
+      <Image source={{ uri: item.image }} style={styles.snapImage} />
+      <View style={styles.snapOverlay}>
+        <View style={styles.snapStats}>
+          <Ionicons name="heart" size={18} color="#fff" />
+          <Text style={styles.snapStatText}>{item.likes}</Text>
+          <Ionicons name="chatbubble" size={18} color="#fff" />
+          <Text style={styles.snapStatText}>{item.comments}</Text>
+        </View>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -35,26 +52,16 @@ export default function SnapsScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <View style={isDesktop ? styles.inner : null}>
-        <Text style={styles.sectionTitle}>Recent Snaps</Text>
-        <View style={[styles.snapsGrid, isDesktop && styles.snapsGridDesktop]}>
-          {SNAPS.map((snap) => (
-            <TouchableOpacity key={snap.id} style={[styles.snapCard, isDesktop && styles.snapCardDesktop]} activeOpacity={0.8}>
-              <Image source={{ uri: snap.image }} style={styles.snapImage} />
-              <View style={styles.snapOverlay}>
-                <View style={styles.snapStats}>
-                  <Ionicons name="heart" size={16} color="#fff" />
-                  <Text style={styles.snapStatText}>{snap.likes}</Text>
-                  <Ionicons name="chatbubble" size={16} color="#fff" />
-                  <Text style={styles.snapStatText}>{snap.comments}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-        </View>
-      </ScrollView>
+      <FlatList
+        data={SNAPS}
+        keyExtractor={(item) => item.id}
+        renderItem={renderSnap}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        decelerationRate="fast"
+        snapToAlignment="start"
+        contentContainerStyle={styles.flatListContent}
+      />
     </SafeAreaView>
   );
 }
@@ -87,32 +94,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scroll: {
-    padding: 20,
+  flatListContent: {
+    paddingTop: 20,
+    paddingBottom: 32,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 16,
-  },
-  snapsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  snapCard: {
-    width: '48%',
-    aspectRatio: 1,
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  snapPage: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   snapImage: {
     width: '100%',
@@ -123,8 +112,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    padding: 16,
   },
   snapStats: {
     flexDirection: 'row',
@@ -132,26 +121,11 @@ const styles = StyleSheet.create({
   },
   snapStatText: {
     color: '#fff',
-    fontSize: 14,
-    marginLeft: 4,
-    marginRight: 12,
-  },
-  snapCardDesktop: {
-    width: '23%',
-    aspectRatio: 1,
-    marginHorizontal: '1%',
-  },
-  snapsGridDesktop: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    fontSize: 16,
+    marginLeft: 8,
+    marginRight: 16,
   },
   headerDesktop: {
     paddingHorizontal: 40,
-  },
-  inner: {
-    maxWidth: 1200,
-    alignSelf: 'center',
-    width: '100%',
   },
 });
