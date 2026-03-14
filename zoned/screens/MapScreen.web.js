@@ -6,9 +6,7 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.body}>
-        <View style={styles.iconWrap}>
-          <Ionicons name="map-outline" size={48} color="#ccc" />
-        </View>
+        <Ionicons name="map-outline" size={56} color="#ddd" />
         <Text style={styles.title}>Map not available on web</Text>
         <Text style={styles.sub}>Open the app on iOS or Android to explore the UNSW campus map.</Text>
       </View>
@@ -18,8 +16,7 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fafafa' },
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  iconWrap: { marginBottom: 16 },
-  title: { fontSize: 17, fontWeight: '700', color: '#1a1a1a', marginBottom: 8, textAlign: 'center' },
-  sub: { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
+  body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 12 },
+  title: { fontSize: 17, fontWeight: '700', color: '#333', textAlign: 'center' },
+  sub: { fontSize: 14, color: '#aaa', textAlign: 'center', lineHeight: 20 },
 });
