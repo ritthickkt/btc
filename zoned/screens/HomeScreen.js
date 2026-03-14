@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useIsDesktop } from '../hooks/useIsDesktop';
 import { supabase } from '../supabase/config';
 
 const YELLOW = '#F5C518';
@@ -22,9 +23,9 @@ function getGreeting() {
 
 const QUICK_ACTIONS = [
   { id: '1', label: 'Campus Map', icon: 'map', bg: '#FFF8DC', iconColor: '#1a1a1a' },
-  { id: '2', label: 'Events', icon: 'calendar-outline', bg: '#EBF5FF', iconColor: '#4dabf7' },
-  { id: '3', label: 'Library', icon: 'book-outline', bg: '#EDFFF3', iconColor: '#2f9e44' },
-  { id: '4', label: 'Connect', icon: 'people-outline', bg: '#FFF0F6', iconColor: '#e64980' },
+  { id: '2', label: 'Snaps', icon: 'camera', bg: '#EBF5FF', iconColor: '#4dabf7' },
+  { id: '3', label: 'Evade', icon: 'shield', bg: '#EDFFF3', iconColor: '#2f9e44' },
+  { id: '4', label: 'Study', icon: 'school', bg: '#FFF0F6', iconColor: '#e64980' },
 ];
 
 const ZONES = [
@@ -60,6 +61,7 @@ const ZONES = [
 
 export default function HomeScreen({ navigation }) {
   const [zid, setZid] = useState('');
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -72,6 +74,7 @@ export default function HomeScreen({ navigation }) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <View style={isDesktop ? styles.inner : null}>
 
         {/* Header */}
         <View style={styles.header}>
@@ -97,13 +100,18 @@ export default function HomeScreen({ navigation }) {
 
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
+        <View style={[styles.actionsGrid, isDesktop && styles.actionsGridDesktop]}>
           {QUICK_ACTIONS.map((a) => (
             <TouchableOpacity
               key={a.id}
-              style={styles.actionCard}
+              style={[styles.actionCard, isDesktop && styles.actionCardDesktop]}
               activeOpacity={0.75}
-              onPress={() => a.label === 'Campus Map' && navigation.navigate('Map')}
+              onPress={() => {
+                if (a.label === 'Campus Map') navigation.navigate('Map');
+                else if (a.label === 'Snaps') navigation.navigate('Snaps');
+                else if (a.label === 'Evade') navigation.navigate('Evade');
+                else if (a.label === 'Study') navigation.navigate('Study');
+              }}
             >
               <View style={[styles.actionIcon, { backgroundColor: a.bg }]}>
                 <Ionicons name={a.icon} size={22} color={a.iconColor} />
@@ -115,11 +123,11 @@ export default function HomeScreen({ navigation }) {
 
         {/* Campus Zones */}
         <Text style={styles.sectionTitle}>Campus Zones</Text>
-        <View style={styles.zonesList}>
+        <View style={[styles.zonesList, isDesktop && styles.zonesListDesktop]}>
           {ZONES.map((zone) => (
             <TouchableOpacity
               key={zone.id}
-              style={styles.zoneCard}
+              style={[styles.zoneCard, isDesktop && styles.zoneCardDesktop]}
               activeOpacity={0.75}
               onPress={() => navigation.navigate('Map')}
             >
@@ -135,6 +143,7 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
 
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -147,6 +156,11 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingBottom: 32,
+  },
+  inner: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -294,5 +308,23 @@ const styles = StyleSheet.create({
   zoneDesc: {
     fontSize: 12,
     color: '#999',
+  },
+  actionsGridDesktop: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  actionCardDesktop: {
+    width: 120,
+    marginHorizontal: 10,
+  },
+  zonesListDesktop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
+  },
+  zoneCardDesktop: {
+    width: '48%',
+    marginBottom: 16,
   },
 });

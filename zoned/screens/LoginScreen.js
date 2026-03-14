@@ -23,7 +23,6 @@ const isValidZid = (v) => /^z\d{7}$/.test(v.trim());
 export default function LoginScreen({ navigation }) {
   const [zid, setZid] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -69,19 +68,18 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <StatusBar style="dark" />
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
+    >
+      <StatusBar style="dark" />
 
-        <Animated.View
-          style={[
-            styles.inner,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
+      <Animated.View
+        style={[
+          styles.inner,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+        ]}
+      >
           {/* Logo */}
           <View style={styles.logoSection}>
             <View style={styles.iconContainer}>
@@ -95,7 +93,6 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.form}>
             <Text style={styles.label}>zID</Text>
             <View style={styles.inputWrap}>
-              <Ionicons name="person-outline" size={18} color="#aaa" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="z5312345"
@@ -109,22 +106,14 @@ export default function LoginScreen({ navigation }) {
 
             <Text style={styles.label}>Password</Text>
             <View style={styles.inputWrap}>
-              <Ionicons name="lock-closed-outline" size={18} color="#aaa" style={styles.inputIcon} />
               <TextInput
-                style={[styles.input, { flex: 1 }]}
+                style={styles.input}
                 placeholder="••••••••"
                 placeholderTextColor="#ccc"
                 value={password}
                 onChangeText={(t) => { setPassword(t); setError(''); }}
-                secureTextEntry={!showPassword}
+                secureTextEntry={true}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color="#aaa"
-                />
-              </TouchableOpacity>
             </View>
 
             {!!error && (
@@ -145,21 +134,24 @@ export default function LoginScreen({ navigation }) {
                 : <Text style={styles.signInText}>Sign In</Text>
               }
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.forgotBtn}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.createAccountRow}>
             <Text style={styles.createAccountText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-              <Text style={styles.createAccountLink}>Create Account</Text>
+              <Text style={styles.createAccountLink}>Register</Text>
             </TouchableOpacity>
           </View>
 
           <Text style={styles.footnote}>
-            Only UNSW students with a valid zID can access zoned
+            Use any valid zID format + any password to log in
           </Text>
         </Animated.View>
       </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
   );
 }
 
@@ -271,6 +263,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a1a',
     letterSpacing: 0.2,
+  },
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  forgotText: {
+    fontSize: 14,
+    color: '#999',
   },
   createAccountRow: {
     flexDirection: 'row',
