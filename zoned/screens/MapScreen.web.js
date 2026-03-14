@@ -14,13 +14,10 @@ import { BUILDINGS, FILTERS } from './mapData';
 const DEFAULT_CENTER = { lat: -33.9175, lng: 151.2313, zoom: 17 };
 
 const buildMapUrl = ({ lat, lng, zoom }) => {
-  // OpenStreetMap embed URL with optional marker and bounding box.
-  const bboxSize = 0.006;
-  const minLon = lng - bboxSize;
-  const minLat = lat - bboxSize;
-  const maxLon = lng + bboxSize;
-  const maxLat = lat + bboxSize;
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${minLon}%2C${minLat}%2C${maxLon}%2C${maxLat}&layer=mapnik&marker=${lat}%2C${lng}`;
+  // Use Google Maps embed URL: provides familiar map interface and pin location.
+  // This uses the public embed URL (no API key required) and centers the view on the selected coordinates.
+  const query = `${lat},${lng}`;
+  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&output=embed`;
 };
 
 export default function MapScreen() {
