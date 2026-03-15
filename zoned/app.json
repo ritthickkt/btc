@@ -12,9 +12,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.yourteam.zoned",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.yourteam.zoned",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -29,6 +31,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8bd73933-7699-4fcd-8a1b-ce91f55ee224"
+      }
     }
   }
 }

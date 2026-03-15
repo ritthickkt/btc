@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -28,6 +29,17 @@ function CameraItem({ isActive, navigation, itemHeight }) {
     if (cameraRef.current) {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
       navigation.navigate('Post', { photoUri: photo.uri });
+    }
+  };
+
+  const pickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      navigation.navigate('Post', { photoUri: result.assets[0].uri });
     }
   };
 
@@ -55,25 +67,23 @@ function CameraItem({ isActive, navigation, itemHeight }) {
         isActive={isActive}
       >
         <SafeAreaView style={styles.cameraOverlay} edges={['top', 'bottom']}>
-          {/* Top: flip button */}
-          <View style={styles.topControls}>
-            <View style={styles.topSpacer} />
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => setFacing(f => (f === 'back' ? 'front' : 'back'))}
-            >
-              <Ionicons name="camera-reverse" size={26} color="white" />
-            </TouchableOpacity>
-          </View>
+          <View style={styles.topSpacer} />
 
-          {/* Bottom: shutter + swipe hint */}
+          {/* Bottom: gallery | shutter | flip */}
           <View style={styles.bottomSection}>
             <View style={styles.bottomControls}>
-              <View style={styles.bottomSpacer} />
+              <TouchableOpacity style={styles.iconButton} onPress={pickFromGallery}>
+                <Ionicons name="images-outline" size={26} color="white" />
+              </TouchableOpacity>
               <TouchableOpacity style={styles.shutterButton} onPress={takePicture}>
                 <View style={styles.shutterInner} />
               </TouchableOpacity>
-              <View style={styles.bottomSpacer} />
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => setFacing(f => (f === 'back' ? 'front' : 'back'))}
+              >
+                <Ionicons name="camera-reverse" size={26} color="white" />
+              </TouchableOpacity>
             </View>
             <View style={styles.swipeHint}>
               <Ionicons name="chevron-up" size={20} color="rgba(255,255,255,0.6)" />
@@ -204,14 +214,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
-  topControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
   topSpacer: {
-    width: 44,
+    flex: 1,
   },
   iconButton: {
     width: 44,
@@ -230,9 +234,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 40,
     paddingBottom: 12,
-  },
-  bottomSpacer: {
-    width: 60,
   },
   shutterButton: {
     width: 80,
