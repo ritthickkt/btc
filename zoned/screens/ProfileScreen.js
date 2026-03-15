@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { supabase } from '../supabase/config';
 
 const YELLOW = '#F5C518';
@@ -32,11 +33,15 @@ export default function ProfileScreen() {
   const zid = email.split('@')[0];
   const initials = zid ? zid.slice(0, 2).toUpperCase() : '??';
 
-  const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => supabase.auth.signOut() },
-    ]);
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      if (Platform.OS === 'web') {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   return (

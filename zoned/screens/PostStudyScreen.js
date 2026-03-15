@@ -60,11 +60,10 @@ export default function PostStudyScreen({ navigation }) {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
+    >
         <SafeAreaView style={styles.safe} edges={['top']}>
           <StatusBar style="dark" />
 
@@ -219,7 +218,6 @@ export default function PostStudyScreen({ navigation }) {
           </SafeAreaView>
         </Modal>
       </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
   );
 }
 
