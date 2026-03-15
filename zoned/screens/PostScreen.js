@@ -39,12 +39,13 @@ export default function PostScreen({ navigation, route }) {
       const fileName = `${user.id}/${Date.now()}.jpg`;
 
       // 2. Upload photo to storage
-      const formData = new FormData();
-      formData.append('file', { uri: photoUri, name: fileName, type: 'image/jpeg' });
+      // Supabase requires a `File`/`Blob` for uploads. Convert the local URI to a blob.
+      const response = await fetch(photoUri);
+      const blob = await response.blob();
 
       const { error: uploadError } = await supabase.storage
         .from('snaps')
-        .upload(fileName, formData);
+        .upload(fileName, blob);
 
       if (uploadError) throw uploadError;
 
@@ -65,7 +66,8 @@ export default function PostScreen({ navigation, route }) {
 
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Failed to send', err.message);
+      console.error('Post send failed', err);
+      Alert.alert('Failed to send', err.message || 'Unknown error');
     } finally {
       setSending(false);
     }
