@@ -18,6 +18,9 @@ import { supabase } from '../supabase/config';
 
 const YELLOW = '#F5C518';
 
+const GUEST_USERNAME = process.env.EXPO_PUBLIC_GUEST_USERNAME;
+const GUEST_PASSWORD = process.env.EXPO_PUBLIC_GUEST_PASSWORD;
+
 const isValidZid = (v) => /^[zZ]\d{7}$/.test(v.trim());
 
 export default function LoginScreen({ navigation }) {
@@ -40,7 +43,9 @@ export default function LoginScreen({ navigation }) {
     Keyboard.dismiss();
     setError('');
 
-    if (!isValidZid(zid)) {
+    const isGuest = zid.trim() === GUEST_USERNAME && password === GUEST_PASSWORD;
+
+    if (!isGuest && !isValidZid(zid)) {
       setError('Enter a valid zID — e.g. z5312345');
       return;
     }
@@ -49,10 +54,13 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
+    const email = isGuest
+      ? `${GUEST_USERNAME}@ad.unsw.edu.au`
+      : `${zid.trim().toLowerCase()}@ad.unsw.edu.au`;
+
     setLoading(true);
-    const normalizedZid = zid.trim().toLowerCase();
     const { error: err } = await supabase.auth.signInWithPassword({
-      email: `${normalizedZid}@ad.unsw.edu.au`,
+      email,
       password,
     });
     setLoading(false);

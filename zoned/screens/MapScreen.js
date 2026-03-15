@@ -2,68 +2,73 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
 
-const FOOD_KEYWORDS = ['food', 'bbq', 'pizza', 'snacks', 'free food', 'lunch'];
+const SEARCH_KEYWORDS = ['food', 'bbq', 'pizza', 'snacks', 'free food', 'lunch', 'social', 'welcome', 'party'];
+
+const FOOD_KEYWORDS = [
+  'free food', 'bbq', 'barbeque', 'barbecue', 'pizza', 'snacks',
+  'catering', 'refreshments', 'lunch', 'dinner', 'breakfast',
+  'sausage', 'burger', 'cake', 'bake', 'eat', 'nibbles',
+  'drinks and food', 'food provided', 'food will be', 'there will be food',
+  'free drinks', 'complimentary food', 'light refreshments',
+];
+
+function stripHtml(html) {
+  return html ? html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').toLowerCase() : '';
+}
+
+function hasFreeFood(description) {
+  return FOOD_KEYWORDS.some(kw => stripHtml(description).includes(kw));
+}
+
+const FETCH_HEADERS = {
+  'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+  'origin': 'https://campus.hellorubric.com',
+  'referer': 'https://campus.hellorubric.com/',
+};
+
+async function fetchWithTimeout(url, options, timeout = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (e) { clearTimeout(timer); throw e; }
+}
 
 async function searchEvents(query) {
   const details = {
-    firstCall: false,
-    sortType: 'date',
-    desiredType: 'events',
-    limit: 50,
-    offset: 0,
-    sortDirection: 'asc',
-    searchQuery: query,
-    eventsPeriodFilter: 'Upcoming',
-    countryCode: 'AU',
-    state: 'New South Wales',
-    selectedUniversityId: '5',
-    sessionid: 'ae925467-915f-4770-a040-adfb60d99c1e',
+    firstCall: false, sortType: 'date', desiredType: 'events',
+    limit: 50, offset: 0, sortDirection: 'asc', searchQuery: query,
+    eventsPeriodFilter: 'Upcoming', countryCode: 'AU', state: 'New South Wales',
+    selectedUniversityId: '5', sessionid: 'ae925467-915f-4770-a040-adfb60d99c1e',
     currentUrl: 'https://campus.hellorubric.com/search?type=events',
-    device: 'web_portal',
-    version: 4,
-    timestamp: Date.now(),
+    device: 'web_portal', version: 4, timestamp: Date.now(),
   };
   const body = `details=${encodeURIComponent(JSON.stringify(details))}&endpoint=getUnifiedSearch`;
-  const res = await fetch('https://api.hellorubric.com/', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      'origin': 'https://campus.hellorubric.com',
-      'referer': 'https://campus.hellorubric.com/',
-    },
-    body,
-  });
-  const data = await res.json();
-  return data.results || [];
+  try {
+    const res = await fetchWithTimeout('https://api.hellorubric.com/', {
+      method: 'POST', headers: FETCH_HEADERS, body,
+    });
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) { return []; }
 }
 
 async function getEventDetails(eid) {
   const details = {
-    offset: 0,
-    limit: 4,
-    sortType: 'rating',
-    sortDirection: 'desc',
-    reviewsRequired: false,
-    desiredLevel: 'category',
-    eventId: eid,
-    category: 'event',
+    eventId: String(eid),
     currentUrl: `https://campus.hellorubric.com/?eid=${eid}`,
-    device: 'web_portal',
-    version: 4,
-    timestamp: Date.now(),
+    device: 'web_portal', version: 4, timestamp: Date.now(),
   };
-  const body = `details=${encodeURIComponent(JSON.stringify(details))}&endpoint=getUnifiedEventScreen`;
-  const res = await fetch('https://api.hellorubric.com/', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      'origin': 'https://campus.hellorubric.com',
-      'referer': 'https://campus.hellorubric.com/',
-    },
-    body,
-  });
-  const data = await res.json();
-  return data.eventDetails || null;
+  const body = `details=${encodeURIComponent(JSON.stringify(details))}&endpoint=${encodeURIComponent('https://appserver.getqpay.com:9090/AppServerSwapnil/event/details')}`;
+  try {
+    const res = await fetchWithTimeout('https://api.hellorubric.com/', {
+      method: 'POST', headers: FETCH_HEADERS, body,
+    });
+    const data = await res.json();
+    return data.eventDetails || null;
+  } catch (e) { return null; }
 }
 
 function extractEid(destination) {
@@ -80,36 +85,37 @@ export default function MapScreen() {
     async function loadFoodEvents() {
       try {
         setDebug('Searching events...');
-        const allResults = [];
-        for (const keyword of FOOD_KEYWORDS) {
-          const results = await searchEvents(keyword);
-          setDebug(`Found ${results.length} for "${keyword}"`);
-          allResults.push(...results);
-        }
+        const searchResults = await Promise.all(SEARCH_KEYWORDS.map(kw => searchEvents(kw)));
+        const allResults = searchResults.flat();
         const seen = new Set();
         const unique = allResults.filter(e => {
           if (seen.has(e.destination)) return false;
           seen.add(e.destination);
           return true;
         });
-        setDebug(`Getting details for ${unique.length} events...`);
-        const detailed = [];
-        for (const event of unique.slice(0, 20)) {
-          const eid = extractEid(event.destination);
-          if (!eid) continue;
-          const details = await getEventDetails(eid);
-          if (details?.eventLatitude && details?.eventLongitude) {
-            detailed.push({
+        setDebug(`Checking ${unique.length} events...`);
+        const detailResults = await Promise.allSettled(
+          unique.slice(0, 30).map(async (event) => {
+            const eid = extractEid(event.destination);
+            if (!eid) return null;
+            const details = await getEventDetails(eid);
+            if (!details) return null;
+            if (!hasFreeFood(details.eventDescription || '') && !hasFreeFood(details.eventName || '')) return null;
+            if (!details.eventLatitude || !details.eventLongitude) return null;
+            return {
               id: eid,
               title: details.eventName,
               society: event.societyname,
               time: details.eventTime,
               lat: parseFloat(details.eventLatitude),
               lng: parseFloat(details.eventLongitude),
-            });
-          }
-        }
-        setDebug(`Done! Found ${detailed.length} food events`);
+            };
+          })
+        );
+        const detailed = detailResults
+          .filter(r => r.status === 'fulfilled' && r.value !== null)
+          .map(r => r.value);
+        setDebug(`Found ${detailed.length} food events`);
         setMarkers(detailed);
       } catch (e) {
         setDebug(`Error: ${e.message}`);
