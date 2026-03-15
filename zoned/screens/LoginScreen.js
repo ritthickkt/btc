@@ -18,7 +18,7 @@ import { supabase } from '../supabase/config';
 
 const YELLOW = '#F5C518';
 
-const isValidZid = (v) => /^z\d{7}$/.test(v.trim());
+const isValidZid = (v) => /^[zZ]\d{7}$/.test(v.trim());
 
 export default function LoginScreen({ navigation }) {
   const [zid, setZid] = useState('');
@@ -50,8 +50,9 @@ export default function LoginScreen({ navigation }) {
     }
 
     setLoading(true);
+    const normalizedZid = zid.trim().toLowerCase();
     const { error: err } = await supabase.auth.signInWithPassword({
-      email: `${zid.trim()}@ad.unsw.edu.au`,
+      email: `${normalizedZid}@ad.unsw.edu.au`,
       password,
     });
     setLoading(false);
@@ -98,7 +99,7 @@ export default function LoginScreen({ navigation }) {
                 placeholder="z5312345"
                 placeholderTextColor="#ccc"
                 value={zid}
-                onChangeText={(t) => { setZid(t); setError(''); }}
+                onChangeText={(t) => { setZid(t.trim().toLowerCase()); setError(''); }}
                 autoCapitalize="none"
                 autoCorrect={false}
               />

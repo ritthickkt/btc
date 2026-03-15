@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
+  Alert,
   StyleSheet,
   Text,
   View,
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../supabase/config';
 
 const YELLOW = '#F5C518';
 
@@ -72,6 +74,11 @@ export default function StudyScreen({ navigation }) {
   const [postLocation, setPostLocation] = useState('Main Library');
   const [postDetails, setPostDetails] = useState('');
   const [postPhoto, setPostPhoto] = useState(null);
+  const [postPhotoFile, setPostPhotoFile] = useState(null);
+  const [webCameraActive, setWebCameraActive] = useState(false);
+  const [webStream, setWebStream] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const [buddies, setBuddies] = useState(STUDY_BUDDIES);
   const [requests, setRequests] = useState([
@@ -137,9 +144,70 @@ export default function StudyScreen({ navigation }) {
     return true;
   };
 
+  const fileInputRef = useRef(null);
+
+  const handleWebFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setPostPhoto(URL.createObjectURL(file));
+    setPostPhotoFile(file);
+  };
+
+  const openWebFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const startWebCamera = async () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      Alert.alert('Camera not supported', 'Your browser does not support camera access.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setWebStream(stream);
+      setWebCameraActive(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (error) {
+      Alert.alert('Camera access denied', 'Please allow camera access to take a photo.');
+    }
+  };
+
+  const stopWebCamera = () => {
+    if (webStream) {
+      webStream.getTracks().forEach((track) => track.stop());
+      setWebStream(null);
+    }
+    setWebCameraActive(false);
+  };
+
+  const captureWebPhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    setPostPhoto(dataUrl);
+    stopWebCamera();
+  };
+
+  const extractUri = (result) => {
+    // expo-image-picker returns { canceled, assets } on newer versions, or { cancelled, uri } on older versions
+    return result?.assets?.[0]?.uri || result?.uri || null;
+  };
+
   const pickImage = async () => {
     const hasPermission = await requestImagePermission();
-    if (!hasPermission) return;
+    if (!hasPermission) {
+      Alert.alert('Permission required', 'Please allow access to your photo library to upload a picture.');
+      return;
+    }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -148,13 +216,28 @@ export default function StudyScreen({ navigation }) {
     });
 
     if (!result.canceled) {
-      setPostPhoto(result.assets?.[0]?.uri || null);
+      setPostPhoto(extractUri(result));
+      setPostPhotoFile(null);
     }
   };
 
   const takePhoto = async () => {
-    const hasPermission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!hasPermission.granted) return;
+    if (Platform.OS === 'web') {
+      // Web cannot reliably access the device camera in Expo; fallback to file picker.
+      await pickImage();
+      return;
+    }
+
+    const { granted: cameraGranted } = await ImagePicker.requestCameraPermissionsAsync();
+    const { granted: mediaGranted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!cameraGranted || !mediaGranted) {
+      Alert.alert(
+        'Permission required',
+        'Please allow camera and photo access so you can take and save a photo.'
+      );
+      return;
+    }
 
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
@@ -162,7 +245,8 @@ export default function StudyScreen({ navigation }) {
     });
 
     if (!result.canceled) {
-      setPostPhoto(result.assets?.[0]?.uri || null);
+      setPostPhoto(extractUri(result));
+      setPostPhotoFile(null);
     }
   };
 
@@ -174,12 +258,54 @@ export default function StudyScreen({ navigation }) {
     setPostLocation('Main Library');
     setPostDetails('');
     setPostPhoto(null);
+    setPostPhotoFile(null);
+    stopWebCamera();
   };
 
-  const handlePostStatus = () => {
+  const [posting, setPosting] = useState(false);
+
+  const uploadPhoto = async (uri) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not logged in');
+
+      const fileName = `${user.id}/${Date.now()}.jpg`;
+      const formData = new FormData();
+
+      if (Platform.OS === 'web' && postPhotoFile) {
+        formData.append('file', postPhotoFile, fileName);
+      } else {
+        formData.append('file', { uri, name: fileName, type: 'image/jpeg' });
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('snaps')
+        .upload(fileName, formData);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('snaps')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.warn('Photo upload failed:', error.message || error);
+      return uri; // fallback to local uri if upload fails
+    }
+  };
+
+  const handlePostStatus = async () => {
     if (!canPost) {
       // Minimal validation
       return;
+    }
+
+    setPosting(true);
+
+    let photoUriToUse = postPhoto;
+    if (postPhoto) {
+      photoUriToUse = await uploadPhoto(postPhoto);
     }
 
     const newBuddy = {
@@ -191,11 +317,12 @@ export default function StudyScreen({ navigation }) {
       details: postDetails.trim() || 'Looking for someone to study with!',
       timeAgo: 'Just now',
       isMine: true,
-      photoUri: postPhoto,
+      photoUri: photoUriToUse,
     };
 
     setBuddies((prev) => [newBuddy, ...prev]);
     setQuery('');
+    setPosting(false);
     closePostModal();
   };
 
@@ -259,29 +386,66 @@ export default function StudyScreen({ navigation }) {
               {postPhoto ? (
                 <View style={styles.photoPreviewWrapper}>
                   <Image source={{ uri: postPhoto }} style={styles.photoPreview} />
-                  <TouchableOpacity style={styles.photoRemove} onPress={() => setPostPhoto(null)}>
+                  <TouchableOpacity style={styles.photoRemove} onPress={() => {
+                    setPostPhoto(null);
+                    setPostPhotoFile(null);
+                  }}>
                     <Ionicons name="close" size={18} color="#fff" />
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.photoRow}>
-                  <TouchableOpacity style={styles.photoBtn} onPress={takePhoto}>
+                  <TouchableOpacity
+                    style={styles.photoBtn}
+                    onPress={Platform.OS === 'web' ? startWebCamera : takePhoto}
+                  >
                     <Ionicons name="camera" size={18} color="#1a1a1a" />
                     <Text style={styles.photoBtnText}>Take Photo</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
+                  <TouchableOpacity style={styles.photoBtn} onPress={Platform.OS === 'web' ? openWebFilePicker : pickImage}>
                     <Ionicons name="image" size={18} color="#1a1a1a" />
                     <Text style={styles.photoBtnText}>Upload</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
+              {Platform.OS === 'web' && (
+                <>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    ref={fileInputRef}
+                    onChange={handleWebFileChange}
+                  />
+
+                  {webCameraActive && (
+                    <View style={styles.webCameraOverlay}>
+                      <video ref={videoRef} style={styles.webVideo} />
+                      <View style={styles.webCameraButtons}>
+                        <TouchableOpacity style={styles.webCameraBtn} onPress={captureWebPhoto}>
+                          <Text style={styles.webCameraBtnText}>Capture</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.webCameraBtn} onPress={stopWebCamera}>
+                          <Text style={styles.webCameraBtnText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <canvas ref={canvasRef} style={{ display: 'none' }} />
+                    </View>
+                  )}
+                </>
+              )}
+
               <TouchableOpacity
-                style={[styles.postStatusBtn, !canPost && styles.postStatusBtnDisabled]}
+                style={[styles.postStatusBtn, (!canPost || posting) && styles.postStatusBtnDisabled]}
                 onPress={handlePostStatus}
-                disabled={!canPost}
+                disabled={!canPost || posting}
               >
-                <Text style={styles.postStatusText}>Post Status</Text>
+                {posting ? (
+                  <Text style={styles.postStatusText}>Posting…</Text>
+                ) : (
+                  <Text style={styles.postStatusText}>Post Status</Text>
+                )}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -777,6 +941,39 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  webCameraOverlay: {
+    width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 14,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webVideo: {
+    width: '100%',
+    height: 220,
+    backgroundColor: '#000',
+  },
+  webCameraButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  webCameraBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    marginHorizontal: 6,
+    borderRadius: 14,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+  },
+  webCameraBtnText: {
+    fontWeight: '700',
+    color: '#1a1a1a',
   },
   deleteBtn: {
     flexDirection: 'row',

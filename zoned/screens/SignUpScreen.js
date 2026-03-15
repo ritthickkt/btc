@@ -20,7 +20,7 @@ import { supabase } from '../supabase/config';
 const YELLOW = '#F5C518';
 const UNSW_DOMAIN = 'ad.unsw.edu.au';
 
-const isValidZid = (v) => /^z\d{7}$/.test(v.trim());
+const isValidZid = (v) => /^[zZ]\d{7}$/.test(v.trim());
 
 export default function SignUpScreen({ navigation }) {
   const [zid, setZid] = useState('');
@@ -60,8 +60,9 @@ export default function SignUpScreen({ navigation }) {
     }
 
     setLoading(true);
+    const normalizedZid = zid.trim().toLowerCase();
     const { error: err } = await supabase.auth.signUp({
-      email: `${zid.trim()}@${UNSW_DOMAIN}`,
+      email: `${normalizedZid}@${UNSW_DOMAIN}`,
       password,
     });
     setLoading(false);
@@ -148,7 +149,7 @@ export default function SignUpScreen({ navigation }) {
                   placeholder="z5312345"
                   placeholderTextColor="#ccc"
                   value={zid}
-                  onChangeText={(t) => { setZid(t); setError(''); }}
+                  onChangeText={(t) => { setZid(t.trim().toLowerCase()); setError(''); }}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
@@ -156,7 +157,7 @@ export default function SignUpScreen({ navigation }) {
               {zid.length > 0 && (
                 <Text style={styles.emailPreview}>
                   {isValidZid(zid)
-                    ? `✓  ${zid.trim()}@${UNSW_DOMAIN}`
+                    ? `✓  ${zid.trim().toLowerCase()}@${UNSW_DOMAIN}`
                     : 'Must start with z followed by 7 digits'}
                 </Text>
               )}
